@@ -116,7 +116,7 @@ func OpenGtp5g(wg *sync.WaitGroup, addr string, mtu uint32) (*Gtp5g, error) {
 	g.ps = ps
 
 	// eBPF + XDP & Buffering
-	ret, err := Gtp5gBpfAttach("upfgtp")
+	ret, err := Gtp5gBpfAttach("upfgtp", "n9")
 	if ret != 0 {
 		g.log.Info("Failed to attach eBPF")
 	}
@@ -133,6 +133,11 @@ func (g *Gtp5g) Close() {
 		g.psConn.Close()
 	}
 	if g.link != nil {
+		// eBPF + XDP & Buffering
+		_, err := Gtp5gBpfDetach(g.link.link.Name)
+		if err != nil {
+			g.log.Info("Failed to detach eBPF: ", err)
+		}
 		g.link.Close()
 	}
 	if g.mux != nil {
@@ -1342,8 +1347,9 @@ func (g *Gtp5g) RemoveURR(lSeid uint64, req *ie.IE) ([]report.USAReport, error) 
 }
 
 func (g *Gtp5g) CreateBAR(lSeid uint64, req *ie.IE) error {
-	var barid uint64
-	var attrs []nl.Attr
+	// var barid uint64
+	// var attrs []nl.Attr
+	var pktCount uint16
 
 	ies, err := req.CreateBAR()
 	if err != nil {
@@ -1351,36 +1357,45 @@ func (g *Gtp5g) CreateBAR(lSeid uint64, req *ie.IE) error {
 	}
 	for _, i := range ies {
 		switch i.Type {
-		case ie.BARID:
-			v, err := i.BARID()
-			if err != nil {
-				return err
-			}
-			barid = uint64(v)
-		case ie.DownlinkDataNotificationDelay:
-			v, err := i.DownlinkDataNotificationDelay()
-			if err != nil {
-				return err
-			}
-			// TODO: convert time.Duration -> ?
-			attrs = append(attrs, nl.Attr{
-				Type:  gtp5gnl.BAR_DOWNLINK_DATA_NOTIFICATION_DELAY,
-				Value: nl.AttrU8(v),
-			})
+		// case ie.BARID:
+		// 	v, err := i.BARID()
+		// 	if err != nil {
+		// 		return err
+		// 	}
+		// 	barid = uint64(v)
+		// case ie.DownlinkDataNotificationDelay:
+		// 	v, err := i.DownlinkDataNotificationDelay()
+		// 	if err != nil {
+		// 		return err
+		// 	}
+		// 	// TODO: convert time.Duration -> ?
+		// 	attrs = append(attrs, nl.Attr{
+		// 		Type:  gtp5gnl.BAR_DOWNLINK_DATA_NOTIFICATION_DELAY,
+		// 		Value: nl.AttrU8(v),
+		// 	})
 		case ie.SuggestedBufferingPacketsCount:
 			v, err := i.SuggestedBufferingPacketsCount()
 			if err != nil {
 				return err
 			}
-			attrs = append(attrs, nl.Attr{
-				Type:  gtp5gnl.BAR_BUFFERING_PACKETS_COUNT,
-				Value: nl.AttrU16(v),
-			})
+			// attrs = append(attrs, nl.Attr{
+			// 	Type:  gtp5gnl.BAR_BUFFERING_PACKETS_COUNT,
+			// 	Value: nl.AttrU16(v),
+			// })
+			pktCount = uint16(v)
 		}
 	}
 
-	oid := gtp5gnl.OID{lSeid, barid}
-	return gtp5gnl.CreateBAROID(g.client, g.link.link, oid, attrs)
+	Gtp5gBpfCreateBar(g.link.link.Name,
+		uint32(lSeid),
+		0x0a0a0006,
+		0x0a0a0007,
+		0,
+		pktCount)
+	// oid := gtp5gnl.OID{lSeid, barid}
+	// return gtp5gnl.CreateBAROID(g.client, g.link.link, oid, attrs)
+
+	return nil
 }
 
 func (g *Gtp5g) UpdateBAR(lSeid uint64, req *ie.IE) error {
