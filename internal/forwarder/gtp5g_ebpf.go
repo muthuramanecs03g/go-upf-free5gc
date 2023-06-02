@@ -12,8 +12,9 @@ var programName string = "gtp5g_buf_prog"
 
 type xdpInfo struct {
 	prog       goebpf.Program
-	buf_flows  goebpf.Map
-	ndbuf_info goebpf.Map
+	flow_seid  goebpf.Map
+	seid_nip   goebpf.Map
+	seid_idpkt goebpf.Map
 }
 
 var ifToXdp map[string]xdpInfo
@@ -54,16 +55,22 @@ func Gtp5gBpfAttach(ifname string) (int, error) {
 	}
 	printBpfInfo(bpf)
 
-	// Find gtp5g_buf_flows eBPF map
-	buf_flows := bpf.GetMapByName("buf_flows")
-	if buf_flows == nil {
-		fatalError("eBPF map 'buf_flows' not found")
+	// Find flow_seid eBPF map
+	flow_seid := bpf.GetMapByName("flow_seid")
+	if flow_seid == nil {
+		fatalError("eBPF map 'flow_seid' not found")
 	}
 
-	// Find gtp5g_ndbuf_info eBPF map
-	ndbuf_info := bpf.GetMapByName("ndbuf_info")
-	if ndbuf_info == nil {
-		fatalError("eBPF map 'ndbuf_info' not found")
+	// Find seid_nip eBPF map
+	seid_nip := bpf.GetMapByName("seid_nip")
+	if seid_nip == nil {
+		fatalError("eBPF map 'seid_nip' not found")
+	}
+
+	// Find seid_idpkt eBPF map
+	seid_idpkt := bpf.GetMapByName("seid_idpkt")
+	if seid_idpkt == nil {
+		fatalError("eBPF map 'seid_idpkt' not found")
 	}
 
 	// Program name matches function name in xdp.c:
@@ -87,8 +94,9 @@ func Gtp5gBpfAttach(ifname string) (int, error) {
 
 	info := xdpInfo{
 		prog:       xdp,
-		buf_flows:  buf_flows,
-		ndbuf_info: ndbuf_info,
+		flow_seid:  flow_seid,
+		seid_nip:   seid_nip,
+		seid_idpkt: seid_idpkt,
 	}
 	ifToXdp[ifname] = info
 
