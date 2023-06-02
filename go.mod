@@ -5,6 +5,7 @@ go 1.14
 require (
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d
 	github.com/davecgh/go-spew v1.1.1
+	github.com/dropbox/goebpf v0.0.0-20221212193212-e568275f8431 // indirect
 	github.com/free5gc/go-gtp5gnl v1.4.5
 	github.com/free5gc/util v1.0.5-0.20230511064842-2e120956883b
 	github.com/hashicorp/go-version v1.6.0

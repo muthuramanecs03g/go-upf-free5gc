@@ -63,7 +63,6 @@ func NewDriver(wg *sync.WaitGroup, cfg *factory.Config) (Driver, error) {
 		if err != nil {
 			return nil, errors.Wrap(err, "open Gtp5g")
 		}
-
 		link := driver.Link()
 		for _, dnn := range cfg.DnnList {
 			_, dst, err := net.ParseCIDR(dnn.Cidr)

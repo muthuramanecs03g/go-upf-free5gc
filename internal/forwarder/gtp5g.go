@@ -115,7 +115,13 @@ func OpenGtp5g(wg *sync.WaitGroup, addr string, mtu uint32) (*Gtp5g, error) {
 	}
 	g.ps = ps
 
-	g.log.Infof("Forwarder started")
+	// eBPF + XDP & Buffering
+	ret, err := Gtp5gBpfAttach("upfgtp")
+	if ret != 0 {
+		g.log.Info("Failed to attach eBPF")
+	}
+
+	g.log.Info("Forwarder started")
 	return g, nil
 }
 
@@ -1495,8 +1501,9 @@ func (g *Gtp5g) queryURR(lSeid uint64, urrid uint32, ps bool) ([]report.USARepor
 }
 
 // Note: the max size of netlink msg is 16k,
-//       the number of reports from gtp5g is limited
-//       depending on the size of report
+//
+//	the number of reports from gtp5g is limited
+//	depending on the size of report
 func (g *Gtp5g) QueryMultiURR(lSeidUrridsMap map[uint64][]uint32) (map[uint64][]report.USAReport, error) {
 	return g.queryMultiURR(lSeidUrridsMap, false)
 }
