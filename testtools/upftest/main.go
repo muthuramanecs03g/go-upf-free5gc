@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"log"
 	"net"
 	"time"
@@ -14,17 +13,17 @@ import (
 
 func main() {
 	var (
-		server   = flag.String("-s", "127.0.0.8:8805", "server's addr/port")
-		nodeid   = flag.String("-n", "127.0.0.8", "client's node id")
+		// server   = flag.String("-s", "127.0.0.8:8805", "server's addr/port")
+		// nodeid   = flag.String("-n", "127.0.0.8", "client's node id")
 		boottime = time.Now()
 		seq      uint32
 		err      error
 		buf      = make([]byte, 1500)
 		waiting  bool
 	)
-	flag.Parse()
+	// flag.Parse()
 
-	raddr, err := net.ResolveUDPAddr("udp4", *server)
+	raddr, err := net.ResolveUDPAddr("udp4", "127.0.0.8:8805")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -37,7 +36,7 @@ func main() {
 	seq += 1
 	asreq, err := message.NewAssociationSetupRequest(
 		seq, // Sequence Number
-		ie.NewNodeID(*nodeid, "", ""),
+		ie.NewNodeID("127.0.0.8", "", ""),
 		ie.NewRecoveryTimeStamp(boottime),
 	).Marshal()
 	if err != nil {
@@ -90,8 +89,8 @@ func main() {
 		0,   // SEID(Session Endpoint Identifier)
 		seq, // Sequence Number
 		0,   // Message Priority
-		ie.NewNodeID(*nodeid, "", ""),
-		ie.NewFSEID(1, net.ParseIP(*nodeid), nil),
+		ie.NewNodeID("127.0.0.8", "", ""),
+		ie.NewFSEID(1, net.ParseIP("127.0.0.8"), nil),
 		ie.NewCreatePDR(
 			ie.NewPDRID(1),
 			ie.NewPrecedence(255),
@@ -115,6 +114,7 @@ func main() {
 			),
 			ie.NewFARID(2),
 			ie.NewQERID(1),
+			ie.NewBARID(1),
 		),
 		ie.NewCreateFAR(
 			ie.NewFARID(1),
@@ -146,6 +146,10 @@ func main() {
 			ie.NewGateStatus(ie.GateStatusOpen, ie.GateStatusOpen),
 			ie.NewMBR(2000000, 1000000),
 			ie.NewQFI(1),
+		),
+		ie.NewCreateBAR(
+			ie.NewBARID(1),
+			ie.NewSuggestedBufferingPacketsCount(32),
 		),
 		ie.NewPDNType(ie.PDNTypeIPv4),
 	).Marshal()

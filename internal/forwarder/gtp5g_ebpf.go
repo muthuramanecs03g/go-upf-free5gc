@@ -98,6 +98,7 @@ func Gtp5gBpfAttach(ifname, redirIfname string) (int, error) {
 	}
 
 	// Attach to interface
+	// &goebpf.XdpAttachParams{Interface: intf, Mode: goebpf.XdpAttachModeSkb
 	err = xdp.Attach(ifname)
 	if err != nil {
 		fatalError("xdp.Attach(): %v", err)
@@ -125,29 +126,39 @@ func Gtp5gBpfAttach(ifname, redirIfname string) (int, error) {
 func Gtp5gBpfCreateBar(ifname string, seid, ueip, nip uint32,
 	link, pktcount uint16,
 ) error {
+	fmt.Printf("Gtp5gBpfCreateBar: iface: %s Seid: %d UE: %d NIP: %d\n",
+		ifname, seid, ueip, nip)
+	fmt.Printf("Gtp5gBpfCreateBar: link: %d PktCnt: %d\n",
+		link, pktcount)
 	xdp := getXdpInfo(ifname)
 	if xdp == nil {
 		return fmt.Errorf("Failed to get xdp info in create bar\n")
 	}
+	fmt.Printf("Gtp5gBpfCreateBar: XDP: %v\n", xdp)
 
 	// Fill SEID
-	if err := xdp.flow_seid.Insert(ueip, seid); err != nil {
-		fmt.Printf("Failed to insert seid %v\n", err)
+	// if err := xdp.flow_seid.Insert(ueip, seid); err != nil {
+	if err := xdp.flow_seid.Upsert(0, 0); err != nil {
+		fmt.Printf("Failed to Upsert seid %v\n", err)
 		return err
 	}
+	fmt.Printf("Gtp5gBpfCreateBar: Updated SEID\n")
 
 	// Fill NVMe IP
-	if err := xdp.seid_nip.Insert(seid, nip); err != nil {
-		fmt.Printf("Failed to insert NVMe IP %v\n", err)
+	// if err := xdp.seid_nip.Upsert(seid, nip); err != nil {
+	if err := xdp.seid_nip.Upsert(0, 32); err != nil {
+		fmt.Printf("Failed to Upsert NVMe IP %v\n", err)
 		return err
 	}
+	fmt.Printf("Gtp5gBpfCreateBar: NVMe IP\n")
 
 	// Fill Re-Direct link index and Packet count
-	idpkt := uint32(link)<<16 | uint32(pktcount)
-	if err := xdp.seid_idpkt.Insert(seid, idpkt); err != nil {
-		fmt.Printf("Failed to insert link index and packet count %v\n", err)
+	// idpkt := uint32(link)<<16 | uint32(pktcount)
+	if err := xdp.seid_idpkt.Upsert(0, 16); err != nil {
+		fmt.Printf("Failed to Upsert link index and packet count %v\n", err)
 		return err
 	}
+	fmt.Printf("Gtp5gBpfCreateBar: Packet Count \n")
 
 	return nil
 }

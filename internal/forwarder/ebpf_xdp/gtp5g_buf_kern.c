@@ -45,8 +45,8 @@ struct iphdr {
 /* BAR Flow table */
 BPF_MAP_DEF(flow_seid) = {
     .map_type = BPF_MAP_TYPE_DEVMAP,
-    .key_size = sizeof(u32),
-    .value_size = sizeof(u32),
+    .key_size = sizeof(__u32),
+    .value_size = sizeof(__u32),
     .max_entries = 1024,
 };
 BPF_MAP_ADD(flow_seid);
@@ -54,8 +54,8 @@ BPF_MAP_ADD(flow_seid);
 // NVMe Downlink Buffer IP (32b)
 BPF_MAP_DEF(seid_nip) = {
     .map_type = BPF_MAP_TYPE_DEVMAP,
-    .key_size = sizeof(u32),
-    .value_size = sizeof(u32),
+    .key_size = sizeof(__u32),
+    .value_size = sizeof(__u32),
     .max_entries = 1024,
 };
 BPF_MAP_ADD(seid_nip);
@@ -63,8 +63,8 @@ BPF_MAP_ADD(seid_nip);
 // TX-Redirect link identifier and packet count
 BPF_MAP_DEF(seid_idpkt) = {
     .map_type = BPF_MAP_TYPE_DEVMAP,
-    .key_size = sizeof(u32),
-    .value_size = sizeof(u32),
+    .key_size = sizeof(__u32),
+    .value_size = sizeof(__u32),
     .max_entries = 1024,
 };
 BPF_MAP_ADD(seid_idpkt);
@@ -143,6 +143,7 @@ static int gtp5g_eth_handle(struct xdp_md *ctx)
 SEC("xdp")
 int gtp5g_buf_prog(struct xdp_md *ctx)
 {
+    bpf_printk("Received a packet\n");
     return gtp5g_eth_handle(ctx);
 }
 // int gtp5g_buf_prog(struct xdp_md *ctx)
