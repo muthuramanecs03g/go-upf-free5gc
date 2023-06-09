@@ -5,7 +5,6 @@ import (
 	"os"
 
 	"github.com/dropbox/goebpf"
-	"github.com/vishvananda/netlink"
 )
 
 var elf string = "./bin/gtp5g_buf_kern.elf"
@@ -55,71 +54,73 @@ func getXdpInfo(ifname string) *xdpInfo {
 }
 
 func Gtp5gBpfAttach(ifname, redirIfname string) (int, error) {
-	if ifname == "" {
-		return -1, fmt.Errorf("Empty interface name")
-	}
-	fmt.Printf("Interfae name: %s\n", ifname)
-	bpf := goebpf.NewDefaultEbpfSystem()
-	err := bpf.LoadElf(elf)
-	if err != nil {
-		fatalError("LoadElf() failed: %v", err)
-	}
-	printBpfInfo(bpf)
+	// if ifname == "" {
+	// 	return -1, fmt.Errorf("Empty interface name")
+	// }
+	// fmt.Printf("Interfae name: %s\n", ifname)
+	// bpf := goebpf.NewDefaultEbpfSystem()
+	// err := bpf.LoadElf(elf)
+	// if err != nil {
+	// 	fatalError("LoadElf() failed: %v", err)
+	// }
+	// printBpfInfo(bpf)
 
-	// Find flow_seid eBPF map
-	flow_seid := bpf.GetMapByName("flow_seid")
-	if flow_seid == nil {
-		fatalError("eBPF map 'flow_seid' not found")
-	}
+	// // Find flow_seid eBPF map
+	// flow_seid := bpf.GetMapByName("flow_seid")
+	// if flow_seid == nil {
+	// 	fatalError("eBPF map 'flow_seid' not found")
+	// }
 
-	// Find seid_nip eBPF map
-	seid_nip := bpf.GetMapByName("seid_nip")
-	if seid_nip == nil {
-		fatalError("eBPF map 'seid_nip' not found")
-	}
+	// // Find seid_nip eBPF map
+	// seid_nip := bpf.GetMapByName("seid_nip")
+	// if seid_nip == nil {
+	// 	fatalError("eBPF map 'seid_nip' not found")
+	// }
 
-	// Find seid_idpkt eBPF map
-	seid_idpkt := bpf.GetMapByName("seid_idpkt")
-	if seid_idpkt == nil {
-		fatalError("eBPF map 'seid_idpkt' not found")
-	}
+	// // Find seid_idpkt eBPF map
+	// seid_idpkt := bpf.GetMapByName("seid_idpkt")
+	// if seid_idpkt == nil {
+	// 	fatalError("eBPF map 'seid_idpkt' not found")
+	// }
 
-	// Program name matches function name in xdp.c:
-	//      int packet_count(struct xdp_md *ctx)
-	xdp := bpf.GetProgramByName(programName)
-	if xdp == nil {
-		fatalError("Program '%s' not found.", programName)
-	}
+	// // Program name matches function name in xdp.c:
+	// //      int packet_count(struct xdp_md *ctx)
+	// xdp := bpf.GetProgramByName(programName)
+	// if xdp == nil {
+	// 	fatalError("Program '%s' not found.", programName)
+	// }
 
-	// Load XDP program into kernel
-	err = xdp.Load()
-	if err != nil {
-		fatalError("xdp.Load(): %v", err)
-	}
+	// // Load XDP program into kernel
+	// err = xdp.Load()
+	// if err != nil {
+	// 	fatalError("xdp.Load(): %v", err)
+	// }
 
-	// Attach to interface
-	// &goebpf.XdpAttachParams{Interface: intf, Mode: goebpf.XdpAttachModeSkb
-	err = xdp.Attach(ifname)
-	if err != nil {
-		fatalError("xdp.Attach(): %v", err)
-	}
+	// // Attach to interface
+	// // &goebpf.XdpAttachParams{Interface: intf, Mode: goebpf.XdpAttachModeSkb
+	// err = xdp.Attach(ifname)
+	// if err != nil {
+	// 	fatalError("xdp.Attach(): %v", err)
+	// }
 
-	ifData, err := netlink.LinkByName(redirIfname)
-	if err != nil {
-		fmt.Printf("Could not find link %s!\n", redirIfname)
-		return -1, err
-	}
-	redirectLinkIdx := ifData.Attrs().Index
+	// ifData, err := netlink.LinkByName(redirIfname)
+	// if err != nil {
+	// 	fmt.Printf("Could not find link %s!\n", redirIfname)
+	// 	return -1, err
+	// }
+	// redirectLinkIdx := ifData.Attrs().Index
 
-	info := xdpInfo{
-		redirectLinkIdx: redirectLinkIdx,
-		prog:            xdp,
-		flow_seid:       flow_seid,
-		seid_nip:        seid_nip,
-		seid_idpkt:      seid_idpkt,
-	}
-	ifToXdp[ifname] = info
+	// info := xdpInfo{
+	// 	redirectLinkIdx: redirectLinkIdx,
+	// 	prog:            xdp,
+	// 	flow_seid:       flow_seid,
+	// 	seid_nip:        seid_nip,
+	// 	seid_idpkt:      seid_idpkt,
+	// }
+	// ifToXdp[ifname] = info
 
+	// return 0, nil
+	// low.DoAttach()
 	return 0, nil
 }
 

@@ -1,13 +1,13 @@
-// #define KBUILD_MODNAME "gtp5g_buf"
-// #include <uapi/linux/bpf.h>
-// #include <linux/byteorder/generic.h>
-// #include <linux/in.h>
-// #include <linux/if_ether.h>
-// #include <linux/if_packet.h>
-// #include <linux/if_vlan.h>
-// #include <linux/ip.h>
-// #include <linux/ipv6.h>
-// #include <net/checksum.h>
+#define KBUILD_MODNAME "gtp5g_buf"
+#include <uapi/linux/bpf.h>
+#include <linux/byteorder/generic.h>
+#include <linux/in.h>
+#include <linux/if_ether.h>
+#include <linux/if_packet.h>
+#include <linux/if_vlan.h>
+#include <linux/ip.h>
+#include <linux/ipv6.h>
+#include <net/checksum.h>
 
 #include "bpf_helpers.h"
 
