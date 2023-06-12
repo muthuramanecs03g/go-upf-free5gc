@@ -1,83 +1,69 @@
 #define KBUILD_MODNAME "gtp5g_buf"
 #include <uapi/linux/bpf.h>
-#include <linux/byteorder/generic.h>
 #include <linux/in.h>
 #include <linux/if_ether.h>
 #include <linux/if_packet.h>
 #include <linux/if_vlan.h>
 #include <linux/ip.h>
 #include <linux/ipv6.h>
-#include <net/checksum.h>
 
 #include "bpf_helpers.h"
 
-typedef unsigned long u64;
-typedef unsigned int u32;
-typedef unsigned short  u16;
-
-// Ethernet header
-// #include <linux/if_ether.h>
-#define ETH_ALEN    6
-#define ETH_P_IP    0x0800      /* Internet Protocol packet */
-struct ethhdr {
-  __u8 h_dest[6];
-  __u8 h_source[6];
-  __u16 h_proto;
-} __attribute__((packed));
-
-// IPv4 header
-// #include <linux/ip.h>
-struct iphdr {
-  __u8 ihl : 4;
-  __u8 version : 4;
-  __u8 tos;
-  __u16 tot_len;
-  __u16 id;
-  __u16 frag_off;
-  __u8 ttl;
-  __u8 protocol;
-  __u16 check;
-  __u32 saddr;
-  __u32 daddr;
-} __attribute__((packed));
-
-/* For TX-traffic redirect requires net_device ifindex to be in this devmap */
-/* BAR Flow table */
-BPF_MAP_DEF(flow_seid) = {
-    .map_type = BPF_MAP_TYPE_DEVMAP,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(__u32),
-    .max_entries = 1024,
+#if 0
+struct nvme_entry {
+    __be32 uip; /* UPF Buffer MAC address */
+    __be64 umac; /* UPF Buffer MAC address */
+    int uifindex; /* UPF Buffer link index */
+    __be64 nmac; /* NVMe link index */
 };
-BPF_MAP_ADD(flow_seid);
 
-// NVMe Downlink Buffer IP (32b)
-BPF_MAP_DEF(seid_nip) = {
-    .map_type = BPF_MAP_TYPE_DEVMAP,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(__u32),
-    .max_entries = 1024,
+struct bar_entry {
+    u16 pktcnt; /* Current packet count */
 };
-BPF_MAP_ADD(seid_nip);
 
-// TX-Redirect link identifier and packet count
-BPF_MAP_DEF(seid_idpkt) = {
-    .map_type = BPF_MAP_TYPE_DEVMAP,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(__u32),
-    .max_entries = 1024,
+struct buf_entry {
+    __be32 ip; /* UE IP Address*/
+    u16 bid; /* BAR ID */
+    u16 pktcnt; /* Total packet count */   
+	__be32 nip; /* NVMe IP address */   
 };
-BPF_MAP_ADD(seid_idpkt);
 
+struct {
+	// __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(type, BPF_MAP_TYPE_DEVMAP_HASH);
+	__type(key, __be32); /* NVMe IP Address */
+	__type(value, struct nvme_entry);
+	__uint(max_entries, 64);
+} gtp5g_nvme_table SEC(".maps");
+
+struct {
+	// __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(type, BPF_MAP_TYPE_DEVMAP_HASH);
+	__type(key, u16); /* BAR ID */
+	__type(value, struct bar_entry);
+	__uint(max_entries, 64);
+} gtp5g_bar_table SEC(".maps");
+
+struct {
+	// __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(type, BPF_MAP_TYPE_DEVMAP_HASH);
+	__type(key, __be32); /* UE IP Address */
+	__type(value, struct buf_entry);
+	__uint(max_entries, 64);
+} gtp5g_buf_table SEC(".maps");
+#endif
+
+#if 0
 static int buffer_handle(struct xdp_md *ctx, struct iphdr *ip,
     struct ethhdr *eth)
 {
     void *data = (void *)(long)ctx->data;
     void *data_end = (void *)(long)ctx->data_end;
-    u32 *seid, *nip;
-    u64 *id_pkt;
-    u32 seid_key;
+    struct buf_entry *buf_entry;
+    struct bar_entry *bar_entry;
+    struct nvme_entry *nvme_entry;
     u32 addr;
+    u16 bid;
 
     // offset = ntohs(ip->ihl) * 4;
     if ((void *)ip + 20 > data_end) {
@@ -85,22 +71,25 @@ static int buffer_handle(struct xdp_md *ctx, struct iphdr *ip,
         return XDP_ABORTED;
     }
     
-    // IP destination address is UE address
+    // Buffer Table
     addr = ip->daddr;
-    seid = bpf_map_lookup_elem(&flow_seid, &addr);
-    if (!seid) {
+    buf_entry = bpf_map_lookup_elem(&gtp5g_buf_table, &addr);
+    if (!buf_entry) {
         return XDP_PASS;
     }
-    seid_key = *seid;
+    bid = buf_entry->bid;
 
-    // Get the NVMe system ip address
-    nip = bpf_map_lookup_elem(&seid_nip, &seid_key);
-    if (!nip) {
+    // BAR Table
+    bar_entry = bpf_map_lookup_elem(&gtp5g_bar_table, &bid);
+    if (!bar_entry) {
         return XDP_PASS;
     }
+    bar_entry->pktcnt++;
 
-    id_pkt = bpf_map_lookup_elem(&seid_idpkt, &seid_key);
-    if (!id_pkt) {
+    // NVMe Table
+    addr = buf_entry->nip;
+    nvme_entry = bpf_map_lookup_elem(&gtp5g_nvme_table, &addr);
+    if (!nvme_entry) {
         return XDP_PASS;
     }
 
@@ -111,6 +100,59 @@ static int buffer_handle(struct xdp_md *ctx, struct iphdr *ip,
     // ipv4_csum(ip, sizeof(struct iphdr), &csum);
     // __builtin_memcpy(eth->h_source, saddr, ETH_ALEN);
     // __builtin_memcpy(eth->h_dest, daddr, ETH_ALEN);
+
+    return XDP_REDIRECT;
+}
+#endif
+
+static int buffer_handle(struct xdp_md *ctx, struct iphdr *ip,
+    struct ethhdr *eth)
+{
+#if 0
+    void *data = (void *)(long)ctx->data;
+    void *data_end = (void *)(long)ctx->data_end;
+    struct buf_entry *buf_entry;
+    struct bar_entry *bar_entry;
+    struct nvme_entry *nvme_entry;
+    u32 addr;
+    u16 bid;
+
+    // offset = ntohs(ip->ihl) * 4;
+    if ((void *)ip + 20 > data_end) {
+        bpf_printk("Failed to parse IPv4\n");
+        return XDP_ABORTED;
+    }
+    
+    // Buffer Table
+    addr = ip->daddr;
+    buf_entry = bpf_map_lookup_elem(&gtp5g_buf_table, &addr);
+    if (!buf_entry) {
+        return XDP_PASS;
+    }
+    bid = buf_entry->bid;
+
+    // BAR Table
+    bar_entry = bpf_map_lookup_elem(&gtp5g_bar_table, &bid);
+    if (!bar_entry) {
+        return XDP_PASS;
+    }
+    bar_entry->pktcnt++;
+
+    // NVMe Table
+    addr = buf_entry->nip;
+    nvme_entry = bpf_map_lookup_elem(&gtp5g_nvme_table, &addr);
+    if (!nvme_entry) {
+        return XDP_PASS;
+    }
+
+    // TODO: Packet Count
+
+    ip->tos = 0;
+    // csum = 0;
+    // ipv4_csum(ip, sizeof(struct iphdr), &csum);
+    // __builtin_memcpy(eth->h_source, saddr, ETH_ALEN);
+    // __builtin_memcpy(eth->h_dest, daddr, ETH_ALEN);
+#endif
 
     return XDP_REDIRECT;
 }
